@@ -12,14 +12,27 @@
  * Apps Script project so it can find the form by its ID below.
  */
 
-const FORM_ID = "1D0JqAqzdkL4TEIZ_6XEHZ8sK5OapdRAtHmwzrWvJh1k";
-const SHEET_ID = "1VZb9Fhk4v4DI8w7b2SobMSza93QWBLPanH2WImnSKNY";
+const FORM_TITLE = "Submit an Elkins Arts Event";
+const SHEET_TITLE = "Augusta Concierge Events (responses)";
 const NOTIFY_EMAIL = "tylercrites3@gmail.com";
 const APPROVED_COLUMN = 13; // Column M
 
+function findFileIdByTitle_(title, mimeType) {
+  const it = DriveApp.searchFiles(
+    `title = "${title.replace(/"/g, '\\"')}" and mimeType = "${mimeType}" and trashed = false`
+  );
+  if (it.hasNext()) return it.next().getId();
+  throw new Error(`Could not find a file titled "${title}". Did you rename it?`);
+}
+
 function upgradeAugustaForm() {
-  const form = FormApp.openById(FORM_ID);
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const formId = findFileIdByTitle_(FORM_TITLE, "application/vnd.google-apps.form");
+  const sheetId = findFileIdByTitle_(SHEET_TITLE, "application/vnd.google-apps.spreadsheet");
+  Logger.log("Found form ID:  " + formId);
+  Logger.log("Found sheet ID: " + sheetId);
+
+  const form = FormApp.openById(formId);
+  const ss = SpreadsheetApp.openById(sheetId);
   const sheet = ss.getSheetByName("Form Responses 1") || ss.getSheets()[0];
 
   polishForm_(form);
@@ -126,7 +139,8 @@ function onAugustaFormSubmit(e) {
     const website = get("Event website or registration link");
     const contactEmail = get("Your contact email");
 
-    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheetId = findFileIdByTitle_(SHEET_TITLE, "application/vnd.google-apps.spreadsheet");
+    const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheetByName("Form Responses 1") || ss.getSheets()[0];
     const lastRow = sheet.getLastRow();
     const sheetUrl = `${ss.getUrl()}#gid=${sheet.getSheetId()}&range=M${lastRow}`;
