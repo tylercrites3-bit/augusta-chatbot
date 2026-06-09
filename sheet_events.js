@@ -60,7 +60,10 @@ export async function fetchSheetEvents() {
   const text = await res.text();
   const rows = parseCsv(text);
   return rows
-    .filter((r) => String(r.Approved).toUpperCase() === "TRUE")
+    .filter((r) => {
+      const v = String(r.Approved || "").trim().toLowerCase();
+      return v === "approved" || v === "true";
+    })
     .map((r) => ({
       title: r["Event title"],
       artist_or_org: r["Your name or organization"],
