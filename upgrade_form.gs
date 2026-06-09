@@ -38,13 +38,105 @@ function upgradeAugustaForm() {
   polishForm_(form);
   setupApprovalDropdown_(sheet);
   installTrigger_(form);
+  installApprovalTrigger_(ss);
 
   Logger.log("=== UPGRADE COMPLETE ===");
   Logger.log("- Form polished with friendlier copy + optional website field");
   Logger.log("- Approved/Denied dropdown on column M");
   Logger.log("- Color coding rules added (green/red/yellow)");
-  Logger.log("- Email notifications will go to: " + NOTIFY_EMAIL);
+  Logger.log("- Submission emails will go to: " + NOTIFY_EMAIL);
+  Logger.log("- Auto-replies will email artists when their event is Approved or Denied");
   Logger.log("Submit a test event at: " + form.getPublishedUrl());
+}
+
+function installApprovalTrigger_(ss) {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === "onApprovalEdit") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger("onApprovalEdit")
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+}
+
+/**
+ * Sheet edit trigger — runs whenever any cell is changed.
+ * Filters for column M (Approved dropdown) and emails the submitter.
+ */
+function onApprovalEdit(e) {
+  try {
+    if (!e || !e.range) return;
+    if (e.range.getColumn() !== APPROVED_COLUMN) return;
+    const row = e.range.getRow();
+    if (row < 2) return;
+    const decision = e.value;
+    if (decision !== "Approved" && decision !== "Denied") return;
+
+    const sheet = e.range.getSheet();
+    const data = sheet.getRange(row, 1, 1, 13).getValues()[0];
+    // [Timestamp, EmailAddress, Title, Org, Category, StartDate, EndDate, StartTime, Location, Price, Description, ContactEmail, Approved]
+    const submitterEmail = data[1] || data[11];
+    const eventTitle = data[2];
+    const orgName = data[3] || "there";
+    if (!submitterEmail) return;
+
+    let subject, plain, html;
+    if (decision === "Approved") {
+      subject = `Your event is now live in the Augusta concierge: ${eventTitle}`;
+      plain = [
+        `Hi ${orgName},`,
+        ``,
+        `Great news — your event "${eventTitle}" has been approved and will appear in the Augusta Heritage Center concierge chatbot within the next hour. Visitors to augustaartsandculture.org can now ask the chatbot about it.`,
+        ``,
+        `Thanks for helping us showcase the Elkins arts community!`,
+        ``,
+        `— Augusta Heritage Center`,
+      ].join("\n");
+      html = `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;color:#1a1a1a;">
+          <div style="background:#2e5d3a;color:#faf6ee;padding:18px 24px;">
+            <div style="font-size:13px;letter-spacing:1px;opacity:0.85;">AUGUSTA CONCIERGE</div>
+            <div style="font-size:20px;font-weight:600;margin-top:4px;">Your event is approved</div>
+          </div>
+          <div style="padding:24px;background:#faf6ee;font-size:15px;line-height:1.55;">
+            <p>Hi ${escapeHtml_(orgName)},</p>
+            <p>Great news — your event <strong>${escapeHtml_(eventTitle)}</strong> has been approved and will appear in the Augusta Heritage Center concierge chatbot within the next hour. Visitors to augustaartsandculture.org can now ask the bot about it.</p>
+            <p>Thanks for helping us showcase the Elkins arts community!</p>
+            <p style="color:#6b6b6b;">— Augusta Heritage Center</p>
+          </div>
+        </div>`;
+    } else {
+      subject = `Re: your event submission to Augusta Heritage Center`;
+      plain = [
+        `Hi ${orgName},`,
+        ``,
+        `Thanks for submitting "${eventTitle}" to the Augusta concierge chatbot. After review, we weren't able to include this event in the bot at this time.`,
+        ``,
+        `If you have questions or want to revise and resubmit, please reply to this email.`,
+        ``,
+        `— Augusta Heritage Center`,
+      ].join("\n");
+      html = `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;color:#1a1a1a;">
+          <div style="background:#2e5d3a;color:#faf6ee;padding:18px 24px;">
+            <div style="font-size:13px;letter-spacing:1px;opacity:0.85;">AUGUSTA CONCIERGE</div>
+            <div style="font-size:20px;font-weight:600;margin-top:4px;">Submission update</div>
+          </div>
+          <div style="padding:24px;background:#faf6ee;font-size:15px;line-height:1.55;">
+            <p>Hi ${escapeHtml_(orgName)},</p>
+            <p>Thanks for submitting <strong>${escapeHtml_(eventTitle)}</strong> to the Augusta concierge chatbot. After review, we weren't able to include this event in the bot at this time.</p>
+            <p>If you have questions or want to revise and resubmit, please reply to this email.</p>
+            <p style="color:#6b6b6b;">— Augusta Heritage Center</p>
+          </div>
+        </div>`;
+    }
+
+    MailApp.sendEmail({ to: submitterEmail, subject, body: plain, htmlBody: html });
+  } catch (err) {
+    Logger.log("onApprovalEdit error: " + err.message);
+  }
 }
 
 function polishForm_(form) {
