@@ -17,8 +17,11 @@
 const FORM_TITLE = "Submit an Elkins Arts Event";
 const SHEET_TITLE = "Augusta Concierge Events (responses)";
 const NOTIFY_EMAIL = "tylercrites3@gmail.com";
-const APPROVED_COLUMN = 13; // Column M
-const REASON_COLUMN   = 14; // Column N — staff fills this in before denying
+
+// Column headers used to find our staff columns dynamically.
+// Don't rely on hardcoded column numbers — Google Forms can shift columns.
+const APPROVED_HEADER = "Approved";
+const REASON_HEADER   = "Denial reason (optional)";
 
 function findFileIdByTitle_(title, mimeType) {
   const it = DriveApp.searchFiles(
@@ -26,6 +29,31 @@ function findFileIdByTitle_(title, mimeType) {
   );
   if (it.hasNext()) return it.next().getId();
   throw new Error(`Could not find a file titled "${title}". Did you rename it?`);
+}
+
+/**
+ * Returns the 1-based column index whose row-1 header matches `title` (case-insensitive).
+ * Returns -1 if not found.
+ */
+function findHeaderColumn_(sheet, title) {
+  const lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return -1;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const idx = headers.findIndex(h => String(h).trim().toLowerCase() === title.toLowerCase());
+  return idx === -1 ? -1 : idx + 1;
+}
+
+/**
+ * Converts a 1-based column number to its A1 letter(s). e.g. 13 → "M", 27 → "AA".
+ */
+function colLetter_(n) {
+  let s = "";
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
 }
 
 function upgradeAugustaForm() {
@@ -68,30 +96,51 @@ function installApprovalTrigger_(ss) {
 
 /**
  * Sheet edit trigger — runs whenever any cell is changed.
- * Fires on column M (Approved/Denied dropdown) and emails the submitter.
+ * Finds the "Approved" column by header name (robust to column shifts),
+ * then emails the submitter when a decision is made.
  *
  * Workflow for denial:
- *   1. Type the reason into column N of the row (optional but recommended)
- *   2. Set column M to "Denied" — this trigger fires and sends the email with the reason
+ *   1. Type the reason into the "Denial reason (optional)" column of the row
+ *   2. Set the "Approved" column to "Denied" — trigger fires and emails with the reason
  */
 function onApprovalEdit(e) {
   try {
     if (!e || !e.range) return;
-    if (e.range.getColumn() !== APPROVED_COLUMN) return;
+    const sheet = e.range.getSheet();
+
+    // Find the Approved column dynamically — never hardcode a column number
+    const approvedCol = findHeaderColumn_(sheet, APPROVED_HEADER);
+    if (approvedCol === -1) {
+      Logger.log("onApprovalEdit: could not find '" + APPROVED_HEADER + "' column — run upgradeAugustaForm() first.");
+      return;
+    }
+    if (e.range.getColumn() !== approvedCol) return;
+
     const row = e.range.getRow();
     if (row < 2) return;
     const decision = e.value;
     if (decision !== "Approved" && decision !== "Denied") return;
 
-    const sheet = e.range.getSheet();
-    // Read through column N (14 cols) to get the denial reason
-    const data = sheet.getRange(row, 1, 1, REASON_COLUMN).getValues()[0];
-    // [Timestamp, EmailAddress, Title, Org, Category, StartDate, EndDate, StartTime, Location, Price, Description, ContactEmail, Approved, DenialReason]
-    const submitterEmail = data[1] || data[11];
-    const eventTitle     = data[2];
-    const orgName        = data[3] || "there";
-    const denialReason   = String(data[REASON_COLUMN - 1] || "").trim(); // column N, 0-indexed = 13
-    if (!submitterEmail) return;
+    // Read the whole row up to and including the reason column
+    const reasonCol = findHeaderColumn_(sheet, REASON_HEADER);
+    const readUpTo  = reasonCol !== -1 ? reasonCol : approvedCol;
+    const data = sheet.getRange(row, 1, 1, readUpTo).getValues()[0];
+
+    // Email: prefer Google's auto-collected address (col B = index 1),
+    // fall back to the "Your contact email" form field (find it by header)
+    const contactEmailCol = findHeaderColumn_(sheet, "Your contact email");
+    const submitterEmail  = String(data[1] || (contactEmailCol !== -1 ? data[contactEmailCol - 1] : "") || "").trim();
+
+    const eventTitle   = String(data[2] || "").trim();
+    const orgName      = String(data[3] || "there").trim();
+    const denialReason = reasonCol !== -1 ? String(data[reasonCol - 1] || "").trim() : "";
+
+    if (!submitterEmail) {
+      Logger.log("onApprovalEdit: no submitter email found for row " + row);
+      return;
+    }
+
+    Logger.log("onApprovalEdit: " + decision + " — sending email to " + submitterEmail);
 
     let subject, plain, html;
     if (decision === "Approved") {
@@ -180,43 +229,63 @@ function polishForm_(form) {
 }
 
 function setupApprovalDropdown_(sheet) {
-  // Ensure column M header is "Approved"
-  sheet.getRange(1, APPROVED_COLUMN).setValue("Approved").setFontWeight("bold");
+  // --- Find or create the "Approved" column ---
+  // Always place it AFTER the last existing column so it never conflicts
+  // with Google Forms response columns (which shift as questions are added).
+  let approvedCol = findHeaderColumn_(sheet, APPROVED_HEADER);
+  if (approvedCol === -1) {
+    approvedCol = sheet.getLastColumn() + 1;
+  }
 
-  // Ensure column N header is "Denial reason"
-  sheet.getRange(1, REASON_COLUMN)
-    .setValue("Denial reason (optional)")
+  // --- Find or create the "Denial reason" column (one past Approved) ---
+  let reasonCol = findHeaderColumn_(sheet, REASON_HEADER);
+  if (reasonCol === -1) {
+    reasonCol = approvedCol + 1;
+  }
+
+  // Write the two staff column headers
+  sheet.getRange(1, approvedCol).setValue(APPROVED_HEADER).setFontWeight("bold");
+  sheet.getRange(1, reasonCol)
+    .setValue(REASON_HEADER)
     .setFontWeight("bold")
-    .setNote("Fill this in BEFORE setting column M to Denied. The reason will be included in the artist's email.");
+    .setNote("Fill this in BEFORE setting the Approved column to Denied. The reason will be included in the artist's email.");
 
-  // Dropdown on M2:M1000
-  const range = sheet.getRange(2, APPROVED_COLUMN, 999, 1);
+  Logger.log("Approved column: " + colLetter_(approvedCol) + " (" + approvedCol + ")");
+  Logger.log("Denial reason column: " + colLetter_(reasonCol) + " (" + reasonCol + ")");
+
+  // Dropdown on approvedCol rows 2-1000
+  const dropRange = sheet.getRange(2, approvedCol, 999, 1);
   const rule = SpreadsheetApp.newDataValidation()
     .requireValueInList(["Approved", "Denied"], true)
     .setAllowInvalid(false)
     .setHelpText("Pick Approved to publish to the chatbot, or Denied to reject. Blank = pending.")
     .build();
-  range.setDataValidation(rule);
+  dropRange.setDataValidation(rule);
 
-  // Color coding: green for Approved, red for Denied, yellow for blank/pending
-  const existing = sheet.getConditionalFormatRules();
-  const wholeRow = sheet.getRange("A2:N1000"); // extends through Denial reason column
+  // Color-code entire row through the reason column using dynamic column letters
+  const approvedLetter = colLetter_(approvedCol);
+  const reasonLetter   = colLetter_(reasonCol);
+  const wholeRow = sheet.getRange("A2:" + reasonLetter + "1000");
+
+  // Clear old rules first to avoid duplicates on re-runs
+  sheet.setConditionalFormatRules([]);
+
   const approvedRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=$M2="Approved"')
+    .whenFormulaSatisfied(`=$${approvedLetter}2="${APPROVED_HEADER}"`)
     .setBackground("#d6ead3")
     .setRanges([wholeRow])
     .build();
   const deniedRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=$M2="Denied"')
+    .whenFormulaSatisfied(`=$${approvedLetter}2="Denied"`)
     .setBackground("#f4cccc")
     .setRanges([wholeRow])
     .build();
   const pendingRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=AND($A2<>"",$M2="")')
+    .whenFormulaSatisfied(`=AND($A2<>"",$${approvedLetter}2="")`)
     .setBackground("#fff2cc")
     .setRanges([wholeRow])
     .build();
-  sheet.setConditionalFormatRules([...existing, approvedRule, deniedRule, pendingRule]);
+  sheet.setConditionalFormatRules([approvedRule, deniedRule, pendingRule]);
 }
 
 function installTrigger_(form) {
