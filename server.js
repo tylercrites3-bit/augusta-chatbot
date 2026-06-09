@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { refreshScrapedEvents, loadScrapedEvents } from "./scraper.js";
+import { refreshSheetEvents, loadSheetEvents } from "./sheet_events.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, ".env") });
@@ -109,7 +110,9 @@ function formatScrapedEventsForPrompt(scraped) {
 
 function buildSystemPrompt() {
   const knowledge = loadKnowledge();
-  const localEvents = loadApprovedEvents();
+  const seededLocal = loadApprovedEvents();
+  const sheetLocal = loadSheetEvents();
+  const localEvents = [...seededLocal, ...sheetLocal.events];
   const scraped = loadScrapedEvents();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -131,7 +134,7 @@ ${knowledge}
 
 ${formatScrapedEventsForPrompt(scraped)}
 
-# WIDER ELKINS ARTS EVENTS (local artists, galleries, theaters — submitted via partner orgs)
+# WIDER ELKINS ARTS EVENTS (curated baseline + live artist submissions from the Google Form; last sheet refresh ${sheetLocal.fetchedAt || "never"})
 
 ${formatEventsForPrompt(localEvents)}`;
 }
@@ -184,21 +187,29 @@ app.post("/api/chat", async (req, res) => {
 
 app.get("/api/health", (_req, res) => {
   const scraped = loadScrapedEvents();
+  const sheet = loadSheetEvents();
   res.json({
     ok: true,
     model: MODEL,
     keyLoaded: hasKey,
-    localEvents: loadApprovedEvents().length,
+    seededLocalEvents: loadApprovedEvents().length,
+    sheetEvents: {
+      count: sheet.count,
+      lastRefresh: sheet.fetchedAt,
+    },
     augustaScraped: {
       count: scraped.count,
       lastRefresh: scraped.scrapedAt,
-      source: scraped.source,
     },
   });
 });
 
-app.listen(PORT, async () => {
+async function refreshAll() {
+  await Promise.allSettled([refreshScrapedEvents(), refreshSheetEvents()]);
+}
+
+app.listen(PORT, () => {
   console.log(`\nAugusta concierge running at http://localhost:${PORT}\n`);
-  await refreshScrapedEvents();
-  setInterval(refreshScrapedEvents, REFRESH_INTERVAL_MS);
+  refreshAll();
+  setInterval(refreshAll, REFRESH_INTERVAL_MS);
 });
