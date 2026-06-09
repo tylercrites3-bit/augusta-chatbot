@@ -3,10 +3,12 @@
  * Run upgradeAugustaForm() once to:
  *   - Polish the form (section break, optional website field, friendly confirmation)
  *   - Add an Approved/Denied dropdown to column M of the responses sheet
+ *   - Add a "Denial reason" text column to column N
  *   - Color-code rows by status (green = Approved, red = Denied, yellow = blank/Pending)
  *   - Create a trigger that emails Tyler whenever a new event is submitted
+ *   - Auto-reply to artists when their event is Approved or Denied (with reason if provided)
  *
- * The onAugustaFormSubmit() function is the trigger handler — don't run it directly.
+ * The onAugustaFormSubmit() and onApprovalEdit() functions are trigger handlers — don't run them directly.
  *
  * IMPORTANT: paste this as a NEW file inside the existing "Augusta Form Builder"
  * Apps Script project so it can find the form by its ID below.
@@ -16,6 +18,7 @@ const FORM_TITLE = "Submit an Elkins Arts Event";
 const SHEET_TITLE = "Augusta Concierge Events (responses)";
 const NOTIFY_EMAIL = "tylercrites3@gmail.com";
 const APPROVED_COLUMN = 13; // Column M
+const REASON_COLUMN   = 14; // Column N — staff fills this in before denying
 
 function findFileIdByTitle_(title, mimeType) {
   const it = DriveApp.searchFiles(
@@ -43,9 +46,11 @@ function upgradeAugustaForm() {
   Logger.log("=== UPGRADE COMPLETE ===");
   Logger.log("- Form polished with friendlier copy + optional website field");
   Logger.log("- Approved/Denied dropdown on column M");
+  Logger.log("- Denial reason text field on column N (fill this in before denying)");
   Logger.log("- Color coding rules added (green/red/yellow)");
   Logger.log("- Submission emails will go to: " + NOTIFY_EMAIL);
   Logger.log("- Auto-replies will email artists when their event is Approved or Denied");
+  Logger.log("- Denial emails will include the column N reason if you fill it in");
   Logger.log("Submit a test event at: " + form.getPublishedUrl());
 }
 
@@ -63,7 +68,11 @@ function installApprovalTrigger_(ss) {
 
 /**
  * Sheet edit trigger — runs whenever any cell is changed.
- * Filters for column M (Approved dropdown) and emails the submitter.
+ * Fires on column M (Approved/Denied dropdown) and emails the submitter.
+ *
+ * Workflow for denial:
+ *   1. Type the reason into column N of the row (optional but recommended)
+ *   2. Set column M to "Denied" — this trigger fires and sends the email with the reason
  */
 function onApprovalEdit(e) {
   try {
@@ -75,11 +84,13 @@ function onApprovalEdit(e) {
     if (decision !== "Approved" && decision !== "Denied") return;
 
     const sheet = e.range.getSheet();
-    const data = sheet.getRange(row, 1, 1, 13).getValues()[0];
-    // [Timestamp, EmailAddress, Title, Org, Category, StartDate, EndDate, StartTime, Location, Price, Description, ContactEmail, Approved]
+    // Read through column N (14 cols) to get the denial reason
+    const data = sheet.getRange(row, 1, 1, REASON_COLUMN).getValues()[0];
+    // [Timestamp, EmailAddress, Title, Org, Category, StartDate, EndDate, StartTime, Location, Price, Description, ContactEmail, Approved, DenialReason]
     const submitterEmail = data[1] || data[11];
-    const eventTitle = data[2];
-    const orgName = data[3] || "there";
+    const eventTitle     = data[2];
+    const orgName        = data[3] || "there";
+    const denialReason   = String(data[REASON_COLUMN - 1] || "").trim(); // column N, 0-indexed = 13
     if (!submitterEmail) return;
 
     let subject, plain, html;
@@ -98,7 +109,7 @@ function onApprovalEdit(e) {
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;color:#1a1a1a;">
           <div style="background:#2e5d3a;color:#faf6ee;padding:18px 24px;">
             <div style="font-size:13px;letter-spacing:1px;opacity:0.85;">AUGUSTA CONCIERGE</div>
-            <div style="font-size:20px;font-weight:600;margin-top:4px;">Your event is approved</div>
+            <div style="font-size:20px;font-weight:600;margin-top:4px;">Your event is approved ✓</div>
           </div>
           <div style="padding:24px;background:#faf6ee;font-size:15px;line-height:1.55;">
             <p>Hi ${escapeHtml_(orgName)},</p>
@@ -109,15 +120,22 @@ function onApprovalEdit(e) {
         </div>`;
     } else {
       subject = `Re: your event submission to Augusta Heritage Center`;
+      const reasonBlock = denialReason
+        ? `\n\nReason: ${denialReason}\n`
+        : ``;
       plain = [
         `Hi ${orgName},`,
         ``,
-        `Thanks for submitting "${eventTitle}" to the Augusta concierge chatbot. After review, we weren't able to include this event in the bot at this time.`,
-        ``,
+        `Thanks for submitting "${eventTitle}" to the Augusta concierge chatbot. After review, we weren't able to include this event in the bot at this time.${reasonBlock}`,
         `If you have questions or want to revise and resubmit, please reply to this email.`,
         ``,
         `— Augusta Heritage Center`,
       ].join("\n");
+      const reasonHtml = denialReason
+        ? `<div style="background:#fff3f3;border-left:3px solid #c0392b;padding:10px 14px;margin:16px 0;font-size:14px;color:#5a1e1e;">
+             <strong>Reason:</strong> ${escapeHtml_(denialReason)}
+           </div>`
+        : ``;
       html = `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;color:#1a1a1a;">
           <div style="background:#2e5d3a;color:#faf6ee;padding:18px 24px;">
@@ -127,6 +145,7 @@ function onApprovalEdit(e) {
           <div style="padding:24px;background:#faf6ee;font-size:15px;line-height:1.55;">
             <p>Hi ${escapeHtml_(orgName)},</p>
             <p>Thanks for submitting <strong>${escapeHtml_(eventTitle)}</strong> to the Augusta concierge chatbot. After review, we weren't able to include this event in the bot at this time.</p>
+            ${reasonHtml}
             <p>If you have questions or want to revise and resubmit, please reply to this email.</p>
             <p style="color:#6b6b6b;">— Augusta Heritage Center</p>
           </div>
@@ -164,6 +183,12 @@ function setupApprovalDropdown_(sheet) {
   // Ensure column M header is "Approved"
   sheet.getRange(1, APPROVED_COLUMN).setValue("Approved").setFontWeight("bold");
 
+  // Ensure column N header is "Denial reason"
+  sheet.getRange(1, REASON_COLUMN)
+    .setValue("Denial reason (optional)")
+    .setFontWeight("bold")
+    .setNote("Fill this in BEFORE setting column M to Denied. The reason will be included in the artist's email.");
+
   // Dropdown on M2:M1000
   const range = sheet.getRange(2, APPROVED_COLUMN, 999, 1);
   const rule = SpreadsheetApp.newDataValidation()
@@ -175,7 +200,7 @@ function setupApprovalDropdown_(sheet) {
 
   // Color coding: green for Approved, red for Denied, yellow for blank/pending
   const existing = sheet.getConditionalFormatRules();
-  const wholeRow = sheet.getRange("A2:M1000");
+  const wholeRow = sheet.getRange("A2:N1000"); // extends through Denial reason column
   const approvedRule = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=$M2="Approved"')
     .setBackground("#d6ead3")
