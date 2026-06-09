@@ -220,9 +220,9 @@ function onApprovalEdit(e) {
       const maxCol  = Math.max(approvedCol, reasonCol, websiteCol || 0);
       const fullRow = sheet.getRange(row, 1, 1, maxCol).getValues()[0];
 
-      const startDate = startDateCol !== -1 ? String(fullRow[startDateCol - 1] || "").trim() : "";
-      const endDate   = endDateCol   !== -1 ? String(fullRow[endDateCol   - 1] || "").trim() : "";
-      const startTime = startTimeCol !== -1 ? String(fullRow[startTimeCol - 1] || "").trim() : "";
+      const startDate = startDateCol !== -1 ? formatSheetDate_(fullRow[startDateCol - 1]) : "";
+      const endDate   = endDateCol   !== -1 ? formatSheetDate_(fullRow[endDateCol   - 1]) : "";
+      const startTime = startTimeCol !== -1 ? formatSheetTime_(fullRow[startTimeCol - 1]) : "";
       const location  = locationCol  !== -1 ? String(fullRow[locationCol  - 1] || "").trim() : "";
       const price     = priceCol     !== -1 ? String(fullRow[priceCol     - 1] || "").trim() : "";
       const desc      = descCol      !== -1 ? String(fullRow[descCol      - 1] || "").trim() : "";
@@ -244,6 +244,31 @@ function onApprovalEdit(e) {
   } catch (err) {
     Logger.log("onApprovalEdit error: " + err.message);
   }
+}
+
+/**
+ * Formats a Google Sheets date cell value as YYYY-MM-DD for Make.com / Google Calendar.
+ * Handles both Date objects (from getValues()) and plain strings.
+ */
+function formatSheetDate_(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  // Already a string — return as-is (might be "2026-06-15" or similar)
+  return String(val).trim();
+}
+
+/**
+ * Formats a Google Sheets time cell value as HH:mm for Make.com.
+ * Handles both Date objects and plain strings.
+ */
+function formatSheetTime_(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), "HH:mm");
+  }
+  return String(val).trim();
 }
 
 /**
