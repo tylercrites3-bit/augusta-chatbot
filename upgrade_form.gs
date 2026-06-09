@@ -202,8 +202,79 @@ function onApprovalEdit(e) {
     }
 
     MailApp.sendEmail({ to: submitterEmail, subject, body: plain, htmlBody: html });
+
+    // ── Social media auto-post ──────────────────────────────────────────────
+    // When an event is approved, fire the Make.com webhook so it auto-posts
+    // to Facebook / Instagram. Only runs if the webhook URL is configured.
+    if (decision === "Approved") {
+      // Grab extra fields for the social post
+      const startDateCol  = findHeaderColumn_(sheet, "Start date");
+      const endDateCol    = findHeaderColumn_(sheet, "End date");
+      const startTimeCol  = findHeaderColumn_(sheet, "Start time");
+      const locationCol   = findHeaderColumn_(sheet, "Location");
+      const priceCol      = findHeaderColumn_(sheet, "Price");
+      const descCol       = findHeaderColumn_(sheet, "Description");
+      const websiteCol    = findHeaderColumn_(sheet, "Event website or registration link");
+
+      // Re-read row with enough columns to cover all fields
+      const maxCol  = Math.max(approvedCol, reasonCol, websiteCol || 0);
+      const fullRow = sheet.getRange(row, 1, 1, maxCol).getValues()[0];
+
+      const startDate = startDateCol !== -1 ? String(fullRow[startDateCol - 1] || "").trim() : "";
+      const endDate   = endDateCol   !== -1 ? String(fullRow[endDateCol   - 1] || "").trim() : "";
+      const startTime = startTimeCol !== -1 ? String(fullRow[startTimeCol - 1] || "").trim() : "";
+      const location  = locationCol  !== -1 ? String(fullRow[locationCol  - 1] || "").trim() : "";
+      const price     = priceCol     !== -1 ? String(fullRow[priceCol     - 1] || "").trim() : "";
+      const desc      = descCol      !== -1 ? String(fullRow[descCol      - 1] || "").trim() : "";
+      const website   = websiteCol   !== -1 ? String(fullRow[websiteCol   - 1] || "").trim() : "";
+
+      postToMake_({
+        title:     eventTitle,
+        org:       orgName,
+        startDate: startDate,
+        endDate:   endDate,
+        startTime: startTime,
+        location:  location,
+        price:     price,
+        description: desc,
+        website:   website || "https://augustaartsandculture.org/events/",
+      });
+    }
+
   } catch (err) {
     Logger.log("onApprovalEdit error: " + err.message);
+  }
+}
+
+/**
+ * Sends event data to a Make.com (Integromat) webhook.
+ * The webhook URL is stored in Script Properties so it isn't hardcoded.
+ *
+ * To configure:
+ *   Apps Script → Project Settings → Script Properties
+ *   Add property:  MAKE_WEBHOOK_URL  =  https://hook.us1.make.com/xxxxxxxxxxxx
+ */
+function postToMake_(eventData) {
+  const props = PropertiesService.getScriptProperties();
+  const webhookUrl = props.getProperty("MAKE_WEBHOOK_URL");
+
+  if (!webhookUrl) {
+    Logger.log("postToMake_: MAKE_WEBHOOK_URL not set — skipping social post. Add it in Script Properties.");
+    return;
+  }
+
+  try {
+    const payload = JSON.stringify(eventData);
+    const options = {
+      method: "post",
+      contentType: "application/json",
+      payload: payload,
+      muteHttpExceptions: true,
+    };
+    const response = UrlFetchApp.fetch(webhookUrl, options);
+    Logger.log("postToMake_: webhook responded " + response.getResponseCode() + " — social post queued.");
+  } catch (err) {
+    Logger.log("postToMake_: webhook call failed — " + err.message);
   }
 }
 
