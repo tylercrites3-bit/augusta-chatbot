@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Augusta Heritage Center — Elkins, West Virginia</title>
+  <link rel="stylesheet" href="/widget.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1a1a1a;
+      background: #faf6ee;
+      line-height: 1.6;
+    }
+    .top {
+      background: #2e5d3a;
+      color: #faf6ee;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-family: -apple-system, sans-serif;
+      font-size: 14px;
+    }
+    .top-logo { font-weight: 700; letter-spacing: 0.5px; }
+    .top-nav { display: flex; gap: 22px; margin-left: auto; }
+    .top-nav a { color: #faf6ee; text-decoration: none; opacity: 0.9; }
+    .top-nav a:hover { opacity: 1; text-decoration: underline; }
+    .hero {
+      height: 480px;
+      background: linear-gradient(rgba(30, 66, 38, 0.55), rgba(30, 66, 38, 0.75)),
+                  url("https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=1600&q=70") center/cover;
+      color: #faf6ee;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 0 24px;
+    }
+    .hero h1 {
+      font-size: 56px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      max-width: 900px;
+    }
+    .hero p {
+      font-size: 20px;
+      opacity: 0.95;
+      max-width: 720px;
+      font-style: italic;
+    }
+    .hero-cta {
+      margin-top: 28px;
+      background: #c89b3c;
+      color: #1a1a1a;
+      border: none;
+      padding: 14px 32px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: -apple-system, sans-serif;
+    }
+    .hero-cta:hover { background: #b3892f; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 64px 32px; }
+    .section-eyebrow {
+      font-family: -apple-system, sans-serif;
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: #c89b3c;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 36px;
+      font-weight: 400;
+      margin-bottom: 24px;
+      color: #1e4226;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      margin-top: 32px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e0d3;
+      padding: 24px;
+      transition: transform 0.15s ease;
+    }
+    .card:hover { transform: translateY(-3px); }
+    .card h3 {
+      color: #1e4226;
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .card-date {
+      font-family: -apple-system, sans-serif;
+      font-size: 12px;
+      color: #c89b3c;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .card p { color: #555; font-size: 15px; }
+
+    .banner {
+      background: #1e4226;
+      color: #faf6ee;
+      padding: 56px 32px;
+      text-align: center;
+    }
+    .banner-num {
+      font-size: 56px;
+      font-weight: 400;
+      color: #c89b3c;
+    }
+    .banner-label {
+      font-family: -apple-system, sans-serif;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-top: 4px;
+    }
+    .banner-stats {
+      display: flex;
+      justify-content: center;
+      gap: 80px;
+      flex-wrap: wrap;
+    }
+
+    footer {
+      background: #1a1a1a;
+      color: #999;
+      padding: 40px 32px;
+      text-align: center;
+      font-family: -apple-system, sans-serif;
+      font-size: 13px;
+    }
+
+    .demo-banner {
+      background: #c89b3c;
+      color: #1a1a1a;
+      padding: 8px 16px;
+      text-align: center;
+      font-family: -apple-system, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-banner">DEMO — Augusta concierge chatbot prototype · Maust Project Team 3</div>
+  <div class="top">
+    <div class="top-logo">AUGUSTA HERITAGE CENTER</div>
+    <nav class="top-nav">
+      <a href="#workshops">Workshops</a>
+      <a href="#events">Events</a>
+      <a href="#artists">Artists</a>
+      <a href="#visit">Visit Elkins</a>
+      <a href="#support">Support</a>
+    </nav>
+  </div>
+
+  <section class="hero">
+    <h1>Preserving America's Traditional Arts Since 1972</h1>
+    <p>Immersive workshops, concerts, and gatherings in Elkins, West Virginia — the heart of Appalachia.</p>
+    <button class="hero-cta" onclick="document.querySelector('.aug-fab').click()">Ask the Concierge</button>
+  </section>
+
+  <section class="container" id="workshops">
+    <div class="section-eyebrow">Summer 2026 Workshops</div>
+    <h2>Themed weeks of master instruction</h2>
+    <p style="max-width: 720px; color: #555;">Each week brings together master artists and students of all skill levels for six immersive days of music, dance, and craft.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="card-date">July 12 – 18</div>
+        <h3>Bluegrass Week</h3>
+        <p>Fiddle, banjo, mandolin, guitar, bass, and vocals. Daily classes, evening concerts open to the public, nightly jam sessions.</p>
+      </div>
+      <div class="card">
+        <div class="card-date">July 19 – 25</div>
+        <h3>Old-Time Week</h3>
+        <p>Clawhammer banjo, fiddle, traditional songs, square dance calling. Public dance Saturday night.</p>
+      </div>
+      <div class="card">
+        <div class="card-date">July 26 – August 1</div>
+        <h3>Cajun & Creole Week</h3>
+        <p>Accordion, fiddle, French language, Louisiana cooking. Public fais do-do dance Friday night.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="banner">
+    <div class="banner-stats">
+      <div>
+        <div class="banner-num">44K+</div>
+        <div class="banner-label">Online followers</div>
+      </div>
+      <div>
+        <div class="banner-num">40+</div>
+        <div class="banner-label">Years of teaching</div>
+      </div>
+      <div>
+        <div class="banner-num">1,371</div>
+        <div class="banner-label">Archive recordings</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container" id="artists">
+    <div class="section-eyebrow">Local Arts Community</div>
+    <h2>The artists who make Elkins</h2>
+    <p style="max-width: 720px; color: #555;">Augusta is one part of a thriving regional arts scene — visit galleries, take a workshop, hear a play.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Rosalie Haizlett</h3>
+        <p>Nature illustrator capturing Appalachian flora and fauna in watercolor.</p>
+      </div>
+      <div class="card">
+        <h3>Kevin Woodcock</h3>
+        <p>Oil painter of Randolph County landscapes. New exhibition at Artists at Work.</p>
+      </div>
+      <div class="card">
+        <h3>The Gandy Dancer Theatre</h3>
+        <p>Community theater in a beautifully restored historic venue downtown.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Augusta Heritage Center · 100 Campus Drive, Elkins, WV 26241 · augustaartsandculture.org
+  </footer>
+
+  <script src="/widget.js" defer></script>
+</body>
+</html>
