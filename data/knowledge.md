@@ -95,6 +95,14 @@ Augusta is the anchor, but a wider arts ecosystem surrounds it. The bot should m
 - **First Friday Art Walks** — Downtown galleries and studios open late, music in the streets (first Friday of each month).
 - **Augusta concerts** — see above.
 
+## For local artists — submit your event to the bot
+
+Local artists, venues, and arts organizations can add their own events to this concierge by filling out the Augusta artist event submission form:
+
+**[Submit your event](https://docs.google.com/forms/d/e/1FAIpQLSc0UKfZGnBwoBZ0yjca9YlL4h_9NPUyq-Ye68smlOwJ8EOgIg/viewform)**
+
+Submissions are reviewed and, once approved, appear in the bot's event listings within an hour. If a visitor identifies themselves as an artist or asks how to get their event listed, share this link.
+
 ## Day-trip suggestions for visitors
 
 If a tourist is in Elkins for an Augusta event and has half a day to explore, recommend:
